@@ -4031,23 +4031,35 @@ const AIAdapter = {
   async _realHighlight(context, cfg) {
     const text = context.body || context.prompt || '';
     if (!text.trim()) return { text: 'ℹ️ Seleziona prima un elemento testo nel canvas.' };
-    const prompt = `Sei un esperto di copywriting visivo per Instagram Stories finanziarie.
-Analizza questo testo italiano e identifica da 3 a 5 parole o brevi frasi che hanno il MASSIMO impatto visivo/emotivo e che vale la pena evidenziare graficamente.
 
-Testo: "${text}"
+    const prompt = `Sei un esperto di copywriting visivo per Instagram Stories finanziarie italiane.
 
-Regole:
-- Preferisci concetti chiave, cifre, verbi d'azione, parole emotive
-- Usa il testo ESATTO (rispetta maiuscole e accenti)
-- Max 5 elementi, min 1 parola, max 4 parole per elemento
-- NON evidenziare articoli, congiunzioni o preposizioni isolate
+Analizza il seguente testo e identifica le parole o brevi frasi da evidenziare graficamente con un colore diverso.
 
-Rispondi con un JSON array. Esempio: ["investire", "rendimento annuo", "protezione"]`;
+TESTO: "${text}"
+
+CATEGORIE da cercare (in ordine di priorità):
+1. NUMERI e DATI: percentuali, cifre, anni, date (es. "8%", "2025", "3 regole", "€10.000")
+2. CONCETTI CHIAVE: termini finanziari centrali del messaggio
+3. AGGETTIVI FORTI: aggettivi ad alto impatto emotivo o descrittivo (es. "straordinario", "gratuito", "esclusivo")
+4. VERBI D'AZIONE: verbi che spingono all'azione o creano urgenza (es. "scopri", "proteggi", "investi")
+5. BRAND / NOMI PROPRI: nomi di brand, prodotti, persone
+6. PAROLE EMOTIVE: termini che evocano emozioni forti (es. "paura", "libertà", "successo")
+
+REGOLE:
+- Usa il testo ESATTO (rispetta maiuscole, accenti, punteggiatura interna)
+- Max 6 elementi totali, min 1 parola max 4 parole per elemento
+- NON includere articoli soli (il, la, i, le), congiunzioni (e, ma, o), preposizioni isolate
+- Se nel testo ci sono emoji, NON includerle nell'array (le emoji rimangono dove sono)
+- Preferisci frasi corte ma specifiche a singole parole generiche
+
+Rispondi SOLO con un JSON array delle stringhe esatte. Esempio: ["8%", "portafoglio diversificato", "proteggi ora", "crescita"]`;
 
     const keywords = await callRealProvider(prompt, cfg, true);
-    let result = text.replace(/\{([^}]+)\}/g, '$1'); // rimuovi {} esistenti
-    keywords.forEach(kw => {
-      if (!kw || kw.length < 2) return;
+    let result = text.replace(/\{([^}]+)\}/g, '$1');
+    // Ordina per lunghezza decrescente per evitare match parziali
+    const sorted = [...keywords].filter(k => k && k.length >= 2).sort((a,b) => b.length - a.length);
+    sorted.forEach(kw => {
       const esc = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       result = result.replace(new RegExp(esc, 'gi'), m => `{${m}}`);
     });
@@ -4112,9 +4124,23 @@ const MockAI = {
       create_bullets: [
         `• {Diversifica} il portafoglio su più asset class\n• Mantieni un {fondo di emergenza} di 3-6 mesi di spese\n• Investi regolarmente con un {PAC} (Piano di Accumulo)\n• Monitora i costi: ogni punto di TER in meno vale oro\n• Non reagire alle {notizie di breve termine}`,
       ],
-      highlight_keywords: [
-        `${(prompt||body||'Aggiungi testo nel prompt').replace(/\b(investire|mercato|portafoglio|rendimento|rischio|strategia|patrimonio|finanza|fondi|ETF)\b/gi, '{$1}')}`,
-      ],
+      highlight_keywords: (() => {
+        const src = prompt || body || 'Aggiungi testo nel prompt';
+        let out = src.replace(/\{([^}]+)\}/g, '$1'); // strip existing
+        // 1. Numeri, percentuali, cifre monetarie
+        out = out.replace(/(\d+[\.,]?\d*\s*%|\d+[\.,]?\d*\s*(?:euro|€|\$|mila|milioni?)?(?:\b)|\b\d{4}\b)/gi,
+          m => `{${m.trim()}}`);
+        // 2. Parole finanziarie chiave
+        out = out.replace(/\b(investire|investimento|mercato|portafoglio|rendimento|rischio|strategia|patrimonio|finanza|fondi?|ETF|diversifica(?:re|zione)?|crescita|guadagno|perdita|inflazione|interessi?|dividendi?|azioni?|obbligazioni?|liquidità|PAC|riserva|risparmio|pensione|protezione|indipendenza finanziaria)\b/gi,
+          m => `{${m}}`);
+        // 3. Aggettivi forti
+        out = out.replace(/\b(gratuito|esclusivo|straordinario|incredibile|fondamentale|essenziale|unico|potente|semplice|rapido|immediato|definitivo|segreto|migliore|peggiore|importante|critico|urgente)\b/gi,
+          m => `{${m}}`);
+        // 4. Verbi d'azione
+        out = out.replace(/\b(scopri|impara|proteggi|costruisci|inizia|smetti|evita|ottimizza|massimizza|controlla|gestisci|pianifica|investi|risparmia|guadagna|seguimi|clicca|scrivimi)\b/gi,
+          m => `{${m}}`);
+        return [out];
+      })(),
       contrast_check: [
         `💡 Suggerimento contrasto: usa testo chiaro su sfondo scuro (es. #ffffff su #0b0d14) per massima leggibilità. Il rapporto ideale è ≥ 4.5:1 (WCAG AA). Colori highlight come {#a688ff} su sfondo scuro raggiungono facilmente 3.5:1 — ottimi per keyword decorative.`,
       ],
@@ -4140,7 +4166,7 @@ function buildAIPanelHTML() {
     { id:'rewrite_professional', icon:'briefcase',     label:'Tono professionale' },
     { id:'rewrite_educational',  icon:'book-open',     label:'Tono educativo' },
     { id:'create_bullets',       icon:'list',          label:'Crea bullet points' },
-    { id:'highlight_keywords',   icon:'highlighter',   label:'✨ Evidenzia keywords (AI)' },
+    { id:'highlight_keywords',   icon:'highlighter',   label:'✨ Evidenzia elemento selezionato' },
     { id:'contrast_check',       icon:'eye',           label:'Contrasto & Copy' },
   ];
 
@@ -4199,6 +4225,18 @@ function buildAIPanelHTML() {
       <label class="form-label" for="ai-prompt-input">Prompt / Contesto</label>
       <textarea class="ai-prompt-area" id="ai-prompt-input" placeholder="Scrivi il tuo contesto o lascia vuoto per usare l'elemento selezionato…" rows="3" aria-label="Prompt AI"></textarea>
     </div>
+    <!-- Bottone analisi globale -->
+    <button class="ai-action-btn" id="btn-ai-auto-all"
+      style="background:rgba(124,92,252,0.12);border-color:rgba(124,92,252,0.4);color:var(--accent-text);font-size:var(--text-xs);font-weight:700;padding:10px 12px;"
+      aria-label="Analizza e evidenzia keywords in tutta la story">
+      <span class="ai-action-icon" style="background:rgba(124,92,252,0.25);">
+        <i data-lucide="scan-text" width="12" height="12" aria-hidden="true"></i>
+      </span>
+      🎯 Analizza tutta la Story (tutti gli elementi)
+    </button>
+
+    <div style="height:1px;background:var(--app-border);margin:4px 0;"></div>
+
     <div class="ai-actions">
       ${actions.map(a => `
         <button class="ai-action-btn" data-ai-action="${a.id}" aria-label="${a.label}">
@@ -4266,6 +4304,18 @@ function bindAIPanelEvents(container) {
     });
   }
 
+  /* ── AUTO-HIGHLIGHT TUTTA LA STORY ── */
+  const autoAllBtn = container.querySelector('#btn-ai-auto-all');
+  if (autoAllBtn) {
+    autoAllBtn.addEventListener('click', async () => {
+      autoAllBtn.disabled = true;
+      autoAllBtn.style.opacity = '0.6';
+      await autoHighlightAllElements();
+      autoAllBtn.disabled = false;
+      autoAllBtn.style.opacity = '';
+    });
+  }
+
   container.querySelectorAll('[data-ai-action]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const action  = btn.dataset.aiAction;
@@ -4301,6 +4351,57 @@ function bindAIPanelEvents(container) {
       btn.style.opacity = '';
     });
   });
+}
+
+/* Analizza e applica highlight a TUTTI gli elementi testo della story */
+async function autoHighlightAllElements() {
+  const textTypes = ['title','subtitle','paragraph','quote','cta','box'];
+  const targets = elements.filter(e => textTypes.includes(e.type) && (e.text || '').trim().length > 3);
+  const bulletTypes = ['bullets','numbered'];
+  const bulletTargets = elements.filter(e => bulletTypes.includes(e.type) && e.items?.length);
+
+  if (!targets.length && !bulletTargets.length) {
+    showToast('ℹ️ Nessun elemento testo trovato sul canvas.');
+    return;
+  }
+
+  const cfg = getAIConfig();
+  const hasRealAPI = cfg.provider && cfg.provider !== 'mock' && cfg.apiKey;
+
+  showToast('🔍 Analisi keywords in corso…');
+  pushHistory();
+
+  let processed = 0;
+
+  for (const el of targets) {
+    try {
+      const ctx = { body: el.text, prompt: '' };
+      const result = hasRealAPI
+        ? await AIAdapter._realHighlight(ctx, cfg)
+        : MockAI.generate('highlight_keywords', ctx);
+      if (result?.text) { el.text = result.text; processed++; }
+    } catch(e) { /* skip element on error */ }
+  }
+
+  for (const el of bulletTargets) {
+    try {
+      const newItems = [];
+      for (const item of (el.items || [])) {
+        if (!item.trim()) { newItems.push(item); continue; }
+        const ctx = { body: item, prompt: '' };
+        const result = hasRealAPI
+          ? await AIAdapter._realHighlight(ctx, cfg)
+          : MockAI.generate('highlight_keywords', ctx);
+        newItems.push(result?.text || item);
+      }
+      el.items = newItems;
+      processed++;
+    } catch(e) { /* skip */ }
+  }
+
+  renderCanvas();
+  renderPropsPanel();
+  showToast(`✅ ${processed} elemento/i aggiornati con keyword highlight`);
 }
 
 function applyAIOutput(text) {
@@ -4788,6 +4889,11 @@ function init() {
 
   /* 2. Load saved state from localStorage */
   loadState();
+
+  /* 2b. Pre-configura OpenRouter se nessuna chiave è salvata */
+  if (!getAIConfig().apiKey) {
+    saveAIConfig({ provider: 'openrouter', apiKey: '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' });
+  }
 
   /* 3. Build palette (desktop + mobile drawer) */
   buildPalette();
