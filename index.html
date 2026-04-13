@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="it" data-theme="dark">
 <!-- ============================================================
      JMAN Story Generator V7 — Atomic Edition
@@ -1786,8 +1786,8 @@ let globalState = {
   textShadow:    'none',
   brandName:     'JMAN Investments',
   elementGap:    5,
-  safeTop:       8,   // % of canvas height
-  safeBottom:    17,  // % of canvas height
+  safeTop:       13,  // % altezza canvas — copre logo RDO (~12%)
+  safeBottom:    21,  // % altezza canvas — copre disclaimer RDO (~18%)
 
   /* Advanced color system — colori ufficiali RDO */
   colors: {
@@ -1946,6 +1946,44 @@ function buildMobileTemplateDrawer() {
         <button class="mob-toggle-btn ${globalState.textShadow==='md'?'active':''}" data-mob-shadow="md">Media</button>
         <button class="mob-toggle-btn ${globalState.textShadow==='xl'?'active':''}" data-mob-shadow="xl">Forte</button>
       </div>
+    </div>
+
+    <!-- Section: Margini Sicuri — evita sovrapposizione con logo e disclaimer -->
+    <div class="mob-section">
+      <div class="mob-section-title" style="display:flex;align-items:center;gap:6px;">
+        <span style="font-size:10px;background:rgba(245,255,133,0.15);color:#f5ff85;border-radius:4px;padding:2px 6px;">logo + disclaimer</span>
+        Margini sicuri
+      </div>
+
+      <!-- Safe Top -->
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <label style="font-size:12px;color:var(--app-text-muted);">⬆ Distanza dal logo (top)</label>
+          <span id="mob-val-safe-top" style="font-size:13px;font-weight:700;color:#f5ff85;min-width:32px;text-align:right;">${globalState.safeTop || 13}%</span>
+        </div>
+        <input type="range" id="mob-slider-safe-top"
+          min="5" max="35" step="1" value="${globalState.safeTop || 13}"
+          style="width:100%;height:6px;accent-color:#f5ff85;cursor:pointer;"
+          aria-label="Margine superiore safe top">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--app-text-faint);margin-top:2px;">
+          <span>5% (min)</span><span>↑ RDO logo ~12%</span><span>35% (max)</span>
+        </div>
+      </div>
+
+      <!-- Safe Bottom -->
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <label style="font-size:12px;color:var(--app-text-muted);">⬇ Distanza dal disclaimer (bottom)</label>
+          <span id="mob-val-safe-bottom" style="font-size:13px;font-weight:700;color:#f5ff85;min-width:32px;text-align:right;">${globalState.safeBottom || 21}%</span>
+        </div>
+        <input type="range" id="mob-slider-safe-bottom"
+          min="5" max="40" step="1" value="${globalState.safeBottom || 21}"
+          style="width:100%;height:6px;accent-color:#f5ff85;cursor:pointer;"
+          aria-label="Margine inferiore safe bottom">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--app-text-faint);margin-top:2px;">
+          <span>5% (min)</span><span>↓ RDO disclaimer ~18%</span><span>40% (max)</span>
+        </div>
+      </div>
     </div>`;
 
   lucide.createIcons({ nodes: [body] });
@@ -1979,7 +2017,44 @@ function buildMobileTemplateDrawer() {
       renderCanvas(); buildMobileTemplateDrawer();
     });
   });
+
+  /* Safe Top slider */
+  const sliderST = body.querySelector('#mob-slider-safe-top');
+  const valST    = body.querySelector('#mob-val-safe-top');
+  if (sliderST) {
+    sliderST.addEventListener('input', () => {
+      const v = parseInt(sliderST.value);
+      globalState.safeTop = v;
+      if (valST) valST.textContent = v + '%';
+      /* Real-time preview — update canvas padding without full re-render */
+      const cc = document.getElementById('canvas-content');
+      if (cc) cc.style.padding = `${v}% 8% ${globalState.safeBottom || 21}%`;
+      const guide = document.querySelector('.safe-guide-top');
+      if (guide) guide.style.top = v + '%';
+      scheduleAutosave();
+    });
+    sliderST.addEventListener('change', () => renderCanvas());
+  }
+
+  /* Safe Bottom slider */
+  const sliderSB = body.querySelector('#mob-slider-safe-bottom');
+  const valSB    = body.querySelector('#mob-val-safe-bottom');
+  if (sliderSB) {
+    sliderSB.addEventListener('input', () => {
+      const v = parseInt(sliderSB.value);
+      globalState.safeBottom = v;
+      if (valSB) valSB.textContent = v + '%';
+      /* Real-time preview */
+      const cc = document.getElementById('canvas-content');
+      if (cc) cc.style.padding = `${globalState.safeTop || 13}% 8% ${v}%`;
+      const guide = document.querySelector('.safe-guide-bot');
+      if (guide) guide.style.top = (100 - v) + '%';
+      scheduleAutosave();
+    });
+    sliderSB.addEventListener('change', () => renderCanvas());
+  }
 }
+
 
 /* ── DRAWER 2: TESTO ── */
 let _mobSelectedElId = null; // tracks selected element within mobile text drawer
@@ -2718,7 +2793,7 @@ function renderElHTML(el, scale = 1) {
     case 'image': {
       const pxH = scale === 1
         ? getPreviewImageHeightPx(el.height||30)
-        : Math.round((1920 - Math.round(1920*(globalState.safeTop||8)/100) - Math.round(1920*(globalState.safeBottom||17)/100)) * ((el.height||30)/100));
+        : Math.round((1920 - Math.round(1920*(globalState.safeTop||13)/100) - Math.round(1920*(globalState.safeBottom||21)/100)) * ((el.height||30)/100));
       const br  = Math.round((el.borderRadius||10) * scale);
       if (!el.src) {
         return `<div class="el-image-wrap" style="height:${pxH}px;min-height:${Math.round(60*scale)}px;background:rgba(124,92,252,0.06);border:${Math.max(1,Math.round(2*scale))}px dashed rgba(124,92,252,0.2);display:flex;align-items:center;justify-content:center;border-radius:${br}px;">
@@ -2805,8 +2880,8 @@ function renderCanvas() {
   }
 
   /* Safe zone padding */
-  const st = globalState.safeTop   || 8;
-  const sb = globalState.safeBottom || 17;
+  const st = globalState.safeTop   || 13;
+  const sb = globalState.safeBottom || 21;
   content.style.setProperty('--cc-pad-top', st + '%');
   content.style.setProperty('--cc-pad-bot', sb + '%');
   content.style.padding = `${st}% 8% ${sb}%`;
@@ -4017,8 +4092,8 @@ async function exportPNG() {
       contentHTML += `<div style="flex-shrink:0;">${renderElHTML(el, SCALE)}</div>`;
     });
 
-    const safeTop    = Math.round(STORY_H * (globalState.safeTop    || 8)  / 100);
-    const safeBottom = Math.round(STORY_H * (globalState.safeBottom || 17) / 100);
+    const safeTop    = Math.round(STORY_H * (globalState.safeTop    || 13) / 100);
+    const safeBottom = Math.round(STORY_H * (globalState.safeBottom || 21) / 100);
     const gapPx      = Math.round((globalState.elementGap || 5) * SCALE);
 
     exportEl.innerHTML = `${bgHTML}
@@ -4212,11 +4287,11 @@ function syncGlobalSettingsUI() {
   const vST = document.getElementById('val-safe-top');
   const vSB = document.getElementById('val-safe-bottom');
   const vGP = document.getElementById('val-element-gap');
-  if (sST) sST.value = globalState.safeTop    || 8;
-  if (sSB) sSB.value = globalState.safeBottom || 17;
+  if (sST) sST.value = globalState.safeTop    || 13;
+  if (sSB) sSB.value = globalState.safeBottom || 21;
   if (sGP) sGP.value = globalState.elementGap ?? 5;
-  if (vST) vST.textContent = (globalState.safeTop    || 8)  + '%';
-  if (vSB) vSB.textContent = (globalState.safeBottom || 17) + '%';
+  if (vST) vST.textContent = (globalState.safeTop    || 13) + '%';
+  if (vSB) vSB.textContent = (globalState.safeBottom || 21) + '%';
   if (vGP) vGP.textContent = (globalState.elementGap ?? 5)  + 'px';
 
   /* Brand */
@@ -4335,7 +4410,7 @@ function bindGlobalEvents() {
     globalState.safeTop = parseInt(e.target.value);
     document.getElementById('val-safe-top').textContent = globalState.safeTop + '%';
     const cc = document.getElementById('canvas-content');
-    if (cc) cc.style.padding = `${globalState.safeTop}% 8% ${globalState.safeBottom||17}%`;
+    if (cc) cc.style.padding = `${globalState.safeTop}% 8% ${globalState.safeBottom||21}%`;
     const g = document.querySelector('.safe-guide-top');
     if (g) g.style.top = globalState.safeTop + '%';
     checkOverflow(); scheduleAutosave();
@@ -4344,7 +4419,7 @@ function bindGlobalEvents() {
     globalState.safeBottom = parseInt(e.target.value);
     document.getElementById('val-safe-bottom').textContent = globalState.safeBottom + '%';
     const cc = document.getElementById('canvas-content');
-    if (cc) cc.style.padding = `${globalState.safeTop||8}% 8% ${globalState.safeBottom}%`;
+    if (cc) cc.style.padding = `${globalState.safeTop||13}% 8% ${globalState.safeBottom}%`;
     const g = document.querySelector('.safe-guide-bot');
     if (g) g.style.top = (100 - globalState.safeBottom) + '%';
     checkOverflow(); scheduleAutosave();
