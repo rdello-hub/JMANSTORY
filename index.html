@@ -530,6 +530,7 @@ a { color: inherit; text-decoration: none; }
   transition: border-color var(--transition), box-shadow var(--transition);
   resize: none;
   -webkit-appearance: none;
+  appearance: none;
 }
 .form-input:focus, .form-textarea:focus, .form-select:focus {
   border-color: rgba(124,92,252,0.5);
@@ -889,6 +890,24 @@ a { color: inherit; text-decoration: none; }
 }
 .ai-output-area.visible { display: block; }
 .ai-output-actions { display: flex; gap: 6px; margin-top: 6px; }
+.ai-active-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 99px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+  background: rgba(52,211,153,0.12); color: var(--accent-green);
+  border: 1px solid rgba(52,211,153,0.25);
+}
+.ai-active-badge::before { content: '●'; font-size: 8px; }
+.ai-cfg-section {
+  background: var(--app-panel-2); border: 1px solid var(--app-border);
+  border-radius: var(--radius-md); padding: 10px 12px;
+}
+.ai-cfg-divider { height: 1px; background: var(--app-border); margin: 8px 0; }
+.ai-provider-note {
+  font-size: 9px; color: var(--app-text-faint); line-height: 1.6;
+  background: rgba(124,92,252,0.05); border: 1px solid var(--app-border);
+  border-radius: var(--radius-sm); padding: 6px 8px; margin-top: 4px;
+}
 
 /* ============================================================
    15. EXPORT / LOADING / TOAST
@@ -1092,7 +1111,7 @@ a { color: inherit; text-decoration: none; }
   background: var(--app-bg); border: 1px solid var(--app-border);
   border-radius: var(--radius-md); padding: 12px 14px;
   font-size: 15px; color: var(--app-text); width: 100%;
-  -webkit-appearance: none; transition: border-color var(--transition);
+  -webkit-appearance: none; appearance: none; transition: border-color var(--transition);
   min-height: 48px;
 }
 .mob-input:focus { border-color: rgba(124,92,252,0.5); outline: none;
@@ -1101,7 +1120,7 @@ a { color: inherit; text-decoration: none; }
   background: var(--app-bg); border: 1px solid var(--app-border);
   border-radius: var(--radius-md); padding: 12px 14px;
   font-size: 15px; color: var(--app-text); width: 100%;
-  -webkit-appearance: none; resize: vertical; min-height: 100px;
+  -webkit-appearance: none; appearance: none; resize: vertical; min-height: 100px;
   line-height: 1.5; transition: border-color var(--transition);
 }
 .mob-textarea:focus { border-color: rgba(124,92,252,0.5); outline: none;
@@ -3874,19 +3893,145 @@ function buildMobileElementsDrawer() {
 }
 
 /* ============================================================
-   27. AI ADAPTER LAYER (Mock Mode)
+   27. AI CONFIG STORAGE + REAL API CALLS
+   ============================================================ */
+const AI_CFG_KEY = 'jman-ai-cfg-v2';
+
+function getAIConfig() {
+  try { return JSON.parse(localStorage.getItem(AI_CFG_KEY) || '{}'); } catch { return {}; }
+}
+function saveAIConfig(cfg) {
+  try { localStorage.setItem(AI_CFG_KEY, JSON.stringify(cfg)); } catch {}
+}
+
+/* Gemini 1.5 Flash — free tier: 15 RPM / 1M tokens/day */
+async function callGeminiAPI(prompt, apiKey, expectJSON = false) {
+  const fullPrompt = expectJSON
+    ? prompt + '\n\nRispondi SOLO con un array JSON valido, nessun testo aggiuntivo.'
+    : prompt;
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: fullPrompt }] }],
+        generationConfig: { temperature: 0.25, maxOutputTokens: 400 }
+      })
+    }
+  );
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error(e.error?.message || `Gemini HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  const raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || (expectJSON ? '[]' : '');
+  if (expectJSON) {
+    const match = raw.match(/\[[\s\S]*?\]/);
+    try { return JSON.parse(match ? match[0] : raw); } catch { return []; }
+  }
+  return raw;
+}
+
+/* Groq — free tier: llama3-8b-8192, 30 RPM */
+async function callGroqAPI(prompt, apiKey, expectJSON = false) {
+  const sysMsg = expectJSON
+    ? 'Rispondi SOLO con un array JSON valido senza nessun testo aggiuntivo.'
+    : 'Sei un copywriter professionista di contenuti finanziari italiani per Instagram Stories.';
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'llama3-8b-8192',
+      messages: [
+        { role: 'system', content: sysMsg },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.25, max_tokens: 350
+    })
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error(e.error?.message || `Groq HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  const raw = data.choices?.[0]?.message?.content?.trim() || (expectJSON ? '[]' : '');
+  if (expectJSON) {
+    const match = raw.match(/\[[\s\S]*?\]/);
+    try { return JSON.parse(match ? match[0] : raw); } catch { return []; }
+  }
+  return raw;
+}
+
+/* Dispatcher per provider */
+async function callRealProvider(prompt, cfg, expectJSON) {
+  if (cfg.provider === 'gemini') return callGeminiAPI(prompt, cfg.apiKey, expectJSON);
+  if (cfg.provider === 'groq')   return callGroqAPI(prompt, cfg.apiKey, expectJSON);
+  throw new Error('Provider non riconosciuto: ' + cfg.provider);
+}
+
+/* ============================================================
+   27b. AI ADAPTER LAYER
    ============================================================ */
 const AIAdapter = {
-  provider: 'mock',  // 'mock' | 'openai' | 'anthropic' | 'custom'
-  endpoint: null,    // set for non-mock providers
   async generate(action, context) {
-    if (this.provider === 'mock') {
-      return MockAI.generate(action, context);
+    const cfg = getAIConfig();
+    const hasRealAPI = cfg.provider && cfg.provider !== 'mock' && cfg.apiKey;
+
+    if (hasRealAPI) {
+      try {
+        if (action === 'highlight_keywords') {
+          return await this._realHighlight(context, cfg);
+        }
+        return await this._realGenerate(action, context, cfg);
+      } catch(e) {
+        showToast('⚠️ API: ' + e.message + ' — uso Mock come fallback');
+      }
     }
-    // Future: call external proxy
-    // const res = await fetch(this.endpoint, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action,context}) });
-    // return await res.json();
-    return { text: 'Provider non configurato.' };
+    return MockAI.generate(action, context);
+  },
+
+  async _realHighlight(context, cfg) {
+    const text = context.body || context.prompt || '';
+    if (!text.trim()) return { text: 'ℹ️ Seleziona prima un elemento testo nel canvas.' };
+    const prompt = `Sei un esperto di copywriting visivo per Instagram Stories finanziarie.
+Analizza questo testo italiano e identifica da 3 a 5 parole o brevi frasi che hanno il MASSIMO impatto visivo/emotivo e che vale la pena evidenziare graficamente.
+
+Testo: "${text}"
+
+Regole:
+- Preferisci concetti chiave, cifre, verbi d'azione, parole emotive
+- Usa il testo ESATTO (rispetta maiuscole e accenti)
+- Max 5 elementi, min 1 parola, max 4 parole per elemento
+- NON evidenziare articoli, congiunzioni o preposizioni isolate
+
+Rispondi con un JSON array. Esempio: ["investire", "rendimento annuo", "protezione"]`;
+
+    const keywords = await callRealProvider(prompt, cfg, true);
+    let result = text.replace(/\{([^}]+)\}/g, '$1'); // rimuovi {} esistenti
+    keywords.forEach(kw => {
+      if (!kw || kw.length < 2) return;
+      const esc = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      result = result.replace(new RegExp(esc, 'gi'), m => `{${m}}`);
+    });
+    return { text: result };
+  },
+
+  async _realGenerate(action, context, cfg) {
+    const brand = (globalState?.brandName || 'JMAN Investments');
+    const prompts = {
+      generate_hook:        `Genera un hook d'apertura in italiano per un'Instagram Story finanziaria del brand "${brand}". Massimo 2 frasi. Usa {parole chiave} per evidenziare concetti chiave.`,
+      generate_title:       `Genera un titolo impattante in italiano per un'Instagram Story su finanza/investimenti. Max 8 parole. Usa {parole chiave} per highlight.`,
+      generate_subtitle:    `Genera un sottotitolo in italiano per un'Instagram Story finanziaria. Max 15 parole.`,
+      expand_text:          `Espandi questo testo in italiano con tono professionale e finanziario: "${context.prompt || context.body}". Max 50 parole. Usa {parole} per highlight.`,
+      summarize:            `Sintetizza in 1-2 frasi italiane: "${context.prompt || context.body}". Usa {parole chiave} per highlight.`,
+      rewrite_professional: `Riscrivi in italiano con tono professionale finanziario: "${context.prompt || context.body}". Max 60 parole. Usa {parole} per highlight.`,
+      rewrite_educational:  `Riscrivi in italiano con tono educativo e accessibile: "${context.prompt || context.body}". Max 60 parole. Usa {parole} per highlight.`,
+      create_bullets:       `Crea 4-5 bullet points in italiano su finanza/investimenti basati su: "${context.prompt || context.body}". Inizia ogni punto con •. Usa {parole chiave} per highlight.`,
+    };
+    const prompt = prompts[action] || `Genera contenuto per Instagram Stories finanziarie in italiano: "${context.prompt}"`;
+    const raw = await callRealProvider(prompt, cfg, false);
+    return { text: raw };
   }
 };
 
@@ -3945,6 +4090,10 @@ const MockAI = {
 
 /* Build AI panel HTML */
 function buildAIPanelHTML() {
+  const cfg = getAIConfig();
+  const hasKey = cfg.apiKey && cfg.provider && cfg.provider !== 'mock';
+  const providerNames = { mock:'Mock (offline)', gemini:'Gemini Flash', groq:'Groq / LLaMA3', openai:'OpenAI' };
+
   const actions = [
     { id:'generate_hook',        icon:'zap',           label:'Genera Hook' },
     { id:'generate_title',       icon:'type',          label:'Genera Titolo' },
@@ -3954,15 +4103,59 @@ function buildAIPanelHTML() {
     { id:'rewrite_professional', icon:'briefcase',     label:'Tono professionale' },
     { id:'rewrite_educational',  icon:'book-open',     label:'Tono educativo' },
     { id:'create_bullets',       icon:'list',          label:'Crea bullet points' },
-    { id:'highlight_keywords',   icon:'highlighter',   label:'Evidenzia keywords' },
+    { id:'highlight_keywords',   icon:'highlighter',   label:'✨ Evidenzia keywords (AI)' },
     { id:'contrast_check',       icon:'eye',           label:'Contrasto & Copy' },
   ];
 
   return `<div class="ai-panel-wrap">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;">
-      <span class="ai-mock-badge" title="Modalità simulazione — nessuna API key richiesta">MOCK MODE</span>
-      <span style="font-size:10px;color:var(--app-text-faint);">Nessuna API key richiesta</span>
+
+    <!-- ── API CONFIG SECTION ── -->
+    <div class="ai-cfg-section">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        ${hasKey
+          ? `<span class="ai-active-badge">${providerNames[cfg.provider]||cfg.provider} attivo</span>`
+          : `<span class="ai-mock-badge">MOCK MODE — offline</span>`
+        }
+        <button class="btn-ghost" id="btn-ai-cfg-toggle" style="padding:3px 8px;font-size:10px;" title="Configura API">
+          <i data-lucide="settings-2" width="11" height="11"></i> API
+        </button>
+      </div>
+
+      <div id="ai-cfg-form" style="display:none;margin-top:10px;">
+        <div class="ai-cfg-divider"></div>
+        <div class="form-group" style="margin-bottom:6px;">
+          <label class="form-label">Provider</label>
+          <select class="form-select" id="ai-provider-sel" style="font-size:12px;">
+            <option value="mock"   ${!cfg.provider||cfg.provider==='mock'  ?'selected':''}>Mock (offline, nessuna API)</option>
+            <option value="gemini" ${cfg.provider==='gemini'?'selected':''}>Gemini 1.5 Flash (gratis)</option>
+            <option value="groq"   ${cfg.provider==='groq'  ?'selected':''}>Groq / LLaMA3 (gratis)</option>
+            <option value="openai" ${cfg.provider==='openai'?'selected':''}>OpenAI GPT-4o (a pagamento)</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:6px;">
+          <label class="form-label">API Key</label>
+          <input type="password" class="form-input" id="ai-apikey-input"
+            value="${cfg.apiKey||''}"
+            placeholder="Incolla qui la tua API key…"
+            autocomplete="off" style="font-size:12px;">
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:6px;">
+          <button class="btn-ghost" id="btn-ai-save-cfg" style="flex:1;font-size:11px;">
+            <i data-lucide="save" width="11" height="11"></i> Salva
+          </button>
+          ${hasKey ? `<button class="btn-ghost" id="btn-ai-clear-cfg" style="flex:1;font-size:11px;color:var(--accent-red);">
+            <i data-lucide="x" width="11" height="11"></i> Reset
+          </button>` : ''}
+        </div>
+        <div class="ai-provider-note">
+          💡 <strong>Gemini gratis:</strong> aistudio.google.com → "Get API key"<br>
+          💡 <strong>Groq gratis:</strong> console.groq.com → API Keys<br>
+          🔒 La chiave è salvata solo in locale (localStorage), mai trasmessa a terzi.
+        </div>
+      </div>
     </div>
+    <!-- /API CONFIG SECTION -->
+
     <div class="form-group">
       <label class="form-label" for="ai-prompt-input">Prompt / Contesto</label>
       <textarea class="ai-prompt-area" id="ai-prompt-input" placeholder="Scrivi il tuo contesto o lascia vuoto per usare l'elemento selezionato…" rows="3" aria-label="Prompt AI"></textarea>
@@ -3979,8 +4172,8 @@ function buildAIPanelHTML() {
       <button class="btn-ghost" id="btn-ai-copy" style="flex:1;" aria-label="Copia output AI">
         <i data-lucide="copy" width="12" height="12" aria-hidden="true"></i> Copia
       </button>
-      <button class="btn-ghost" id="btn-ai-apply" style="flex:1;" aria-label="Applica al elemento selezionato">
-        <i data-lucide="arrow-right" width="12" height="12" aria-hidden="true"></i> Applica
+      <button class="btn-ghost" id="btn-ai-apply" style="flex:1;background:rgba(124,92,252,0.12);border-color:rgba(124,92,252,0.3);color:var(--accent-text);" aria-label="Applica al elemento selezionato">
+        <i data-lucide="check" width="12" height="12" aria-hidden="true"></i> Applica al canvas
       </button>
     </div>
   </div>`;
@@ -3999,6 +4192,41 @@ function renderAIPanel() {
 
 function bindAIPanelEvents(container) {
   if (!container) return;
+
+  /* ── API CONFIG TOGGLE ── */
+  const cfgToggleBtn = container.querySelector('#btn-ai-cfg-toggle');
+  const cfgForm      = container.querySelector('#ai-cfg-form');
+  if (cfgToggleBtn && cfgForm) {
+    cfgToggleBtn.addEventListener('click', () => {
+      const open = cfgForm.style.display === 'none' || !cfgForm.style.display;
+      cfgForm.style.display = open ? 'block' : 'none';
+    });
+  }
+
+  /* ── SAVE API CONFIG ── */
+  const saveBtn = container.querySelector('#btn-ai-save-cfg');
+  if (saveBtn) {
+    saveBtn.addEventListener('click', () => {
+      const provider = container.querySelector('#ai-provider-sel')?.value || 'mock';
+      const apiKey   = container.querySelector('#ai-apikey-input')?.value.trim() || '';
+      saveAIConfig({ provider, apiKey });
+      showToast(provider === 'mock'
+        ? '✅ Modalità Mock salvata'
+        : `✅ ${provider.charAt(0).toUpperCase()+provider.slice(1)} API salvata`);
+      renderAIPanel(); // rebuild to show active badge
+    });
+  }
+
+  /* ── RESET API CONFIG ── */
+  const clearBtn = container.querySelector('#btn-ai-clear-cfg');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      saveAIConfig({});
+      showToast('🔄 Configurazione API resettata → Mock mode');
+      renderAIPanel();
+    });
+  }
+
   container.querySelectorAll('[data-ai-action]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const action  = btn.dataset.aiAction;
@@ -4138,9 +4366,9 @@ async function exportPNG() {
 /* iOS Share Sheet → fallback download */
 async function shareOrDownload(blob) {
   const now = new Date();
-  const date = now.toISOString().slice(0,10); // YYYY-MM-DD
+  const date = now.toLocaleDateString('it-IT', {year:'numeric',month:'2-digit',day:'2-digit'}).split('/').reverse().join('-'); // YYYY-MM-DD
   const time = now.toTimeString().slice(0,5).replace(':','-'); // HH-MM
-  const filename = `JMAN_Story_${date}_${time}.png`;
+  const filename = `RDO-STORIES-${date}-${time}.png`;
   const file     = new File([blob], filename, { type: 'image/png' });
 
   /* Try Web Share API (iOS native save to Photos) */
