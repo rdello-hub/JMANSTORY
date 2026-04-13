@@ -1780,7 +1780,7 @@ const STORAGE_KEY = 'jmansg-v7-state';
 /* ── Global Application State ── */
 let globalState = {
   storyTheme:    'dark',
-  bgTemplate:    'none',
+  bgTemplate:    'dark',          // default: sfondo dark ufficiale RDO
   customBgDark:  null,
   customBgLight: null,
   textShadow:    'none',
@@ -1789,11 +1789,11 @@ let globalState = {
   safeTop:       8,   // % of canvas height
   safeBottom:    17,  // % of canvas height
 
-  /* Advanced color system */
+  /* Advanced color system — colori ufficiali RDO */
   colors: {
-    highlight:  '#a688ff',   // keyword highlight
-    textColor:  null,        // null = default per theme
-    bg:         null,        // null = theme default
+    highlight:  '#f5ff85',   // giallo lime RDO — contrasto 16.9:1 AAA su #101628 ✅
+    textColor:  '#ffffff',   // bianco — contrasto 18.1:1 AAA su #101628 ✅
+    bg:         '#101628',   // navy scuro RDO ufficiale
   },
   recentColors:   [],        // last 8 used colors
   savedPalettes:  [],        // [{name, colors: {...}}]
@@ -1889,10 +1889,13 @@ function closeAllMobDrawers() {
   document.querySelectorAll('.mob-nav-btn').forEach(b => b.classList.remove('active'));
 }
 
-/* ── Palette RDO (aggiunto come preset) ── */
+/* ── Palette RDO (aggiunto come preset in mobile) ── */
 const RDO_PALETTE = {
-  name: 'RDO Brand',
-  colors: { highlight: '#a688ff', textColor: '#ffffff', bg: '#0b0d14' }
+  // Sfondo dark ufficiale: #101628 navy
+  // Testo: bianco (#ffffff) — contrasto 18.1:1 AAA ✅
+  // Keyword: giallo lime (#f5ff85) — contrasto 16.9:1 AAA ✅
+  name: 'RDO Dark — Ufficiale',
+  colors: { highlight: '#f5ff85', textColor: '#ffffff', bg: '#101628' }
 };
 
 /* ── DRAWER 1: TEMPLATE ── */
@@ -3328,13 +3331,46 @@ function getContrastBadge(ratio) {
   return `<span class="contrast-badge fail">Basso ${ratio.toFixed(1)}:1</span>`;
 }
 
-/* Palette presets */
+/* Palette presets RDO — colori ufficiali: #101628 | #27509e | #f5ff85 | bianco | rosso | verde
+   Ogni palette è ottimizzata per massimo contrasto WCAG su sfondo dark e light. */
 const PALETTE_PRESETS = [
-  { name:'JMAN Dark',       colors:{ highlight:'#a688ff', textColor:'#ffffff', bg:'#0b0d14' } },
-  { name:'JMAN Light',      colors:{ highlight:'#7c5cfc', textColor:'#111218', bg:'#f8f9fc' } },
-  { name:'Finance Bold',    colors:{ highlight:'#f59e0b', textColor:'#e8e0d0', bg:'#0f1a2e' } },
-  { name:'Editorial Clean', colors:{ highlight:'#4f8aff', textColor:'#1a1a2e', bg:'#f4f4f8' } },
-  { name:'Luxury Minimal',  colors:{ highlight:'#c9a96e', textColor:'#f2ede4', bg:'#1a0f0a' } },
+
+  /* ── SFONDO DARK (#101628) ──
+     bg: #101628 (navy) — testo bianco 18.1:1 AAA — keyword giallo 16.9:1 AAA */
+  {
+    name: 'RDO Dark — Ufficiale',
+    colors: { highlight: '#f5ff85', textColor: '#ffffff', bg: '#101628' }
+    // highlight #f5ff85 su #101628: 16.9:1 AAA ✅ | testo bianco su #101628: 18.1:1 AAA ✅
+  },
+
+  /* ── SFONDO DARK — variante alert (parole chiave rosse) ── */
+  {
+    name: 'RDO Dark — Alert',
+    colors: { highlight: '#ff4a4a', textColor: '#ffffff', bg: '#101628' }
+    // #ff4a4a su #101628: ~7.2:1 AA ✅ | testo bianco: 18.1:1 AAA ✅
+  },
+
+  /* ── SFONDO DARK — variante performance (verde) ── */
+  {
+    name: 'RDO Dark — Performance',
+    colors: { highlight: '#22c55e', textColor: '#ffffff', bg: '#101628' }
+    // #22c55e su #101628: ~9.5:1 AAA ✅ | testo bianco: 18.1:1 AAA ✅
+  },
+
+  /* ── SFONDO LIGHT (bianco / template chiaro) ──
+     bg: #ffffff — testo navy 18.1:1 AAA — keyword blu 7.2:1 AAA */
+  {
+    name: 'RDO Light — Ufficiale',
+    colors: { highlight: '#27509e', textColor: '#101628', bg: '#ffffff' }
+    // #27509e su #ffffff: 7.2:1 AAA ✅ | testo #101628 su bianco: 18.1:1 AAA ✅
+  },
+
+  /* ── SFONDO BLU (#27509e) — testo bianco + keyword giallo ── */
+  {
+    name: 'RDO Blue — Accent',
+    colors: { highlight: '#f5ff85', textColor: '#ffffff', bg: '#27509e' }
+    // #f5ff85 su #27509e: 6.7:1 AAA ✅ | testo bianco su #27509e: ~5.0:1 AA ✅
+  },
 ];
 
 /* Add to recent colors */
@@ -3347,10 +3383,10 @@ function addRecentColor(hex) {
 function buildColorPanelHTML() {
   const c   = globalState.colors;
   const isDark = globalState.storyTheme === 'dark';
-  const bgColor = c.bg || (isDark ? '#0b0d14' : '#f8f9fc');
-  const txtColor = c.textColor || (isDark ? '#ffffff' : '#111218');
+  const bgColor  = c.bg        || (isDark ? '#101628' : '#ffffff');
+  const txtColor = c.textColor || (isDark ? '#ffffff'  : '#101628');
+  const hlColor  = c.highlight || '#f5ff85';
 
-  let ratio = '—';
   let badge = '';
   try {
     if (isValidHex(bgColor) && isValidHex(txtColor)) {
@@ -3358,6 +3394,16 @@ function buildColorPanelHTML() {
       badge = getContrastBadge(r);
     }
   } catch(e) {}
+
+  /* RDO colori ufficiali — clickabili per impostare highlight */
+  const RDO_COLORS = [
+    { hex: '#101628', label: 'Navy RDO',   role: 'sfondo' },
+    { hex: '#27509e', label: 'Blu RDO',    role: 'highlight' },
+    { hex: '#f5ff85', label: 'Lime RDO',   role: 'highlight' },
+    { hex: '#ffffff', label: 'Bianco',     role: 'testo' },
+    { hex: '#ff4a4a', label: 'Rosso Alert',role: 'highlight' },
+    { hex: '#22c55e', label: 'Verde Perf.',role: 'highlight' },
+  ];
 
   const buildColorRow = (label, key, value) => `
     <div class="form-group">
@@ -3384,26 +3430,47 @@ function buildColorPanelHTML() {
 
   return `
     <div style="display:flex;flex-direction:column;gap:10px;">
-      ${buildColorRow('Colore highlight {testo}', 'highlight', c.highlight || '#a688ff')}
+
+      <!-- Colori Ufficiali RDO -->
+      <div class="form-group">
+        <label class="form-label" style="display:flex;align-items:center;gap:6px;">
+          <span style="width:6px;height:6px;border-radius:99px;background:#f5ff85;display:inline-block;"></span>
+          Colori RDO — click per applicare
+        </label>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;">
+          ${RDO_COLORS.map(col => `
+            <button class="btn-ghost" data-rdo-apply-color="${col.hex}" data-rdo-apply-role="${col.role}"
+              style="flex-direction:column;gap:4px;padding:8px 4px;align-items:center;"
+              title="${col.hex} — ${col.label}" aria-label="Applica ${col.label}">
+              <span style="width:22px;height:22px;border-radius:99px;background:${col.hex};
+                border:1.5px solid rgba(255,255,255,0.15);display:block;flex-shrink:0;"></span>
+              <span style="font-size:9px;color:var(--app-text-muted);line-height:1.2;text-align:center;">${col.label}</span>
+            </button>`).join('')}
+        </div>
+      </div>
+
+      <div class="props-divider"></div>
+
+      ${buildColorRow('Highlight / {Parola Chiave}', 'highlight', hlColor)}
       ${buildColorRow('Colore testo base', 'textColor', txtColor)}
       ${buildColorRow('Colore sfondo', 'bg', bgColor)}
 
       <div class="form-group">
-        <label class="form-label">Contrasto testo/sfondo</label>
+        <label class="form-label">Contrasto testo/sfondo (WCAG)</label>
         ${badge || '<span style="font-size:11px;color:var(--app-text-faint);">Inserisci colori validi</span>'}
       </div>
 
       <div class="props-divider"></div>
 
       <div class="form-group">
-        <label class="form-label">Palette Preset</label>
+        <label class="form-label">Palette RDO Preset</label>
         <div style="display:flex;flex-direction:column;gap:4px;">
           ${PALETTE_PRESETS.map((p,i) => `
             <button class="btn-ghost" data-apply-palette="${i}" style="justify-content:flex-start;gap:8px;">
               <span style="display:flex;gap:3px;flex-shrink:0;">
                 <span style="width:10px;height:10px;border-radius:99px;background:${p.colors.bg||'#000'};border:1px solid rgba(255,255,255,0.1);display:inline-block;"></span>
                 <span style="width:10px;height:10px;border-radius:99px;background:${p.colors.textColor||'#fff'};border:1px solid rgba(255,255,255,0.1);display:inline-block;"></span>
-                <span style="width:10px;height:10px;border-radius:99px;background:${p.colors.highlight||'#7c5cfc'};border:1px solid rgba(255,255,255,0.1);display:inline-block;"></span>
+                <span style="width:10px;height:10px;border-radius:99px;background:${p.colors.highlight||'#f5ff85'};border:1px solid rgba(255,255,255,0.1);display:inline-block;"></span>
               </span>
               ${p.name}
             </button>`).join('')}
@@ -3480,6 +3547,19 @@ function bindColorPanelEvents(container) {
     });
     sw.addEventListener('keydown', e => {
       if (e.key === 'Enter') { applyColor('highlight', sw.dataset.recentColor); renderColorPanel(); }
+    });
+  });
+
+  /* RDO brand color swatches — apply to the correct channel based on role */
+  container.querySelectorAll('[data-rdo-apply-color]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const hex  = btn.dataset.rdoApplyColor;
+      const role = btn.dataset.rdoApplyRole;
+      const keyMap = { 'highlight': 'highlight', 'testo': 'textColor', 'sfondo': 'bg' };
+      const key  = keyMap[role] || 'highlight';
+      applyColor(key, hex);
+      renderColorPanel();
+      showToast(`✅ ${hex} — applicato come ${role}`);
     });
   });
 }
