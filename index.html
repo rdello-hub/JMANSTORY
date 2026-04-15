@@ -4916,7 +4916,7 @@ function initPaletteDragDrop() {
     if (!ev.target.closest('.el-controls') && !ev.target.closest('button')) canvas.focus();
   });
   /* paste sul canvas stesso (iOS context-menu paste quando canvas è focused) */
-  canvas.addEventListener('paste', e => handleImagePaste(e));
+  canvas.addEventListener('paste', e => { handleImagePaste(e); e.stopPropagation(); });
 
   /* ── Global paste (Ctrl+V / Cmd+V — desktop) ── */
   document.addEventListener('paste', e => {
