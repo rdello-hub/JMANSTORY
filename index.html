@@ -1058,13 +1058,14 @@ a { color: inherit; text-decoration: none; }
   flex: 1;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  gap: 3px; padding: 6px 2px;
-  font-size: 9px; font-weight: 700;
-  letter-spacing: 0.04em; text-transform: uppercase;
+  gap: 2px; padding: 6px 1px;
+  font-size: 8px; font-weight: 700;
+  letter-spacing: 0.02em; text-transform: uppercase;
   color: var(--app-text-faint);
   border: none; background: none; cursor: pointer;
   transition: color var(--transition);
   min-height: 44px; position: relative;
+  overflow: hidden;
 }
 .mob-nav-btn .mob-nav-icon { transition: transform var(--transition); flex-shrink: 0; }
 .mob-nav-btn.active { color: var(--accent-text); }
@@ -1493,7 +1494,19 @@ a { color: inherit; text-decoration: none; }
   </div>
 </div>
 
-<!-- Drawer M2: TESTO -->
+<!-- Drawer M2: ELEMENTI -->
+<div class="mob-drawer" id="mob-drawer-elements" role="dialog" aria-label="Palette elementi" aria-modal="true">
+  <div class="mob-drawer-handle-bar" aria-hidden="true"><div class="mob-drawer-handle"></div></div>
+  <div class="mob-drawer-header">
+    <span class="mob-drawer-title">Aggiungi Elemento</span>
+    <button class="mob-drawer-close" aria-label="Chiudi" data-mob-close="mob-drawer-elements"><i data-lucide="x" width="14" height="14"></i></button>
+  </div>
+  <div class="mob-drawer-body" id="mob-elements-body">
+    <!-- populated by buildMobileElementsDrawer() -->
+  </div>
+</div>
+
+<!-- Drawer M3: TESTO -->
 <div class="mob-drawer" id="mob-drawer-testo" role="dialog" aria-label="Editor testo" aria-modal="true">
   <div class="mob-drawer-handle-bar" aria-hidden="true"><div class="mob-drawer-handle"></div></div>
   <div class="mob-drawer-header">
@@ -1801,6 +1814,10 @@ a { color: inherit; text-decoration: none; }
       <button class="mob-nav-btn" id="mob-btn-template" data-mob-drawer="mob-drawer-template" aria-label="Template">
         <i data-lucide="layout-template" width="22" height="22" class="mob-nav-icon" aria-hidden="true"></i>
         Template
+      </button>
+      <button class="mob-nav-btn" id="mob-btn-elements" data-mob-drawer="mob-drawer-elements" aria-label="Elementi">
+        <i data-lucide="plus-circle" width="22" height="22" class="mob-nav-icon" aria-hidden="true"></i>
+        Elementi
       </button>
       <button class="mob-nav-btn" id="mob-btn-testo" data-mob-drawer="mob-drawer-testo" aria-label="Testo">
         <i data-lucide="type" width="22" height="22" class="mob-nav-icon" aria-hidden="true"></i>
@@ -2118,7 +2135,88 @@ function buildMobileTemplateDrawer() {
 }
 
 
-/* ── DRAWER 2: TESTO ── */
+/* ── DRAWER 2: ELEMENTI (Palette Mobile) ── */
+function buildMobileElementsDrawer() {
+  const body = document.getElementById('mob-elements-body');
+  if (!body) return;
+
+  const elTypeLabel = {
+    title:'Titolo', subtitle:'Sottotitolo', paragraph:'Paragrafo',
+    bullets:'Bullet List', numbered:'Lista Numerata', box:'Box / Info',
+    quote:'Citazione', cta:'CTA', badge:'Badge', separator:'Separatore', image:'Immagine'
+  };
+  const elIcon = {
+    title:'type', subtitle:'pilcrow', paragraph:'align-left',
+    bullets:'list', numbered:'list-ordered', box:'square',
+    quote:'quote', cta:'zap', badge:'tag', separator:'minus', image:'image'
+  };
+
+  body.innerHTML = `
+    <div class="mob-section">
+      <div class="mob-section-title">✨ Funzioni Rapide</div>
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:14px;">
+        <button class="mob-add-btn" data-mob-add="title" style="flex-direction:row; padding:16px; gap:12px; font-size:13px; text-align:left;">
+          <div class="mob-add-btn-icon"><i data-lucide="type" width="18" height="18"></i></div>
+          <span>Aggiungi <b>Titolo</b></span>
+        </button>
+        <button class="mob-add-btn" data-mob-add="paragraph" style="flex-direction:row; padding:16px; gap:12px; font-size:13px; text-align:left;">
+          <div class="mob-add-btn-icon"><i data-lucide="align-left" width="18" height="18"></i></div>
+          <span>Aggiungi <b>Testo</b></span>
+        </button>
+      </div>
+    </div>
+
+    <div class="mob-section">
+      <div class="mob-section-title">🎨 Tutti gli Elementi</div>
+      <div class="mob-add-grid">
+        ${Object.keys(elTypeLabel).map(type => `
+          <button class="mob-add-btn ${type === 'image' ? 'type-img' : ''} ${type === 'separator' ? 'type-sep' : ''}" data-mob-add="${type}">
+            <div class="mob-add-btn-icon"><i data-lucide="${elIcon[type]}" width="16" height="16"></i></div>
+            ${elTypeLabel[type]}
+          </button>
+        `).join('')}
+      </div>
+    </div>
+    
+    <div style="padding:10px; text-align:center; opacity:0.6; font-size:11px;">
+      💡 Toccando un elemento verrà aggiunto in fondo alla story.
+    </div>`;
+
+  lucide.createIcons({ nodes: [body] });
+
+  /* Bind "Aggiungi elemento" buttons */
+  body.querySelectorAll('[data-mob-add]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const type = btn.dataset.mobAdd;
+      const el = addElement(type);
+      _mobSelectedElId = el.id;
+      selectedElId = el.id;
+      updateSelection();
+      
+      showToast(`✅ ${elTypeLabel[type]} aggiunto`);
+
+      if (type === 'image') {
+        /* Open media drawer directly if image */
+        closeMobDrawer('mob-drawer-elements');
+        triggerImageUpload(el.id);
+        setTimeout(() => {
+          buildMobileMediaDrawer();
+          openMobDrawer('mob-drawer-media');
+        }, 400);
+      } else {
+        /* Switch to Testo drawer to edit the new element */
+        closeMobDrawer('mob-drawer-elements');
+        setTimeout(() => {
+          buildMobileTextDrawer();
+          openMobDrawer('mob-drawer-testo');
+        }, 350);
+      }
+    });
+  });
+}
+
+
+/* ── DRAWER 3: TESTO ── */
 let _mobSelectedElId = null; // tracks selected element within mobile text drawer
 
 function buildMobileTextDrawer() {
@@ -2143,51 +2241,11 @@ function buildMobileTextDrawer() {
   const noEl = elements.length === 0;
 
   body.innerHTML = `
-    <!-- Section: Aggiungi elemento rapido -->
-    <div class="mob-section">
-      <div class="mob-section-title">➕ Aggiungi elemento</div>
-      <div class="mob-add-grid">
-        <button class="mob-add-btn" data-mob-add="title">
-          <div class="mob-add-btn-icon"><i data-lucide="type" width="15" height="15"></i></div>Titolo
-        </button>
-        <button class="mob-add-btn" data-mob-add="subtitle">
-          <div class="mob-add-btn-icon"><i data-lucide="pilcrow" width="15" height="15"></i></div>Sottotitolo
-        </button>
-        <button class="mob-add-btn" data-mob-add="paragraph">
-          <div class="mob-add-btn-icon"><i data-lucide="align-left" width="15" height="15"></i></div>Paragrafo
-        </button>
-        <button class="mob-add-btn" data-mob-add="bullets">
-          <div class="mob-add-btn-icon"><i data-lucide="list" width="15" height="15"></i></div>Bullet List
-        </button>
-        <button class="mob-add-btn" data-mob-add="quote">
-          <div class="mob-add-btn-icon"><i data-lucide="quote" width="15" height="15"></i></div>Citazione
-        </button>
-        <button class="mob-add-btn" data-mob-add="cta">
-          <div class="mob-add-btn-icon"><i data-lucide="zap" width="15" height="15"></i></div>CTA
-        </button>
-        <button class="mob-add-btn" data-mob-add="badge">
-          <div class="mob-add-btn-icon"><i data-lucide="tag" width="15" height="15"></i></div>Badge
-        </button>
-        <button class="mob-add-btn" data-mob-add="box">
-          <div class="mob-add-btn-icon"><i data-lucide="square" width="15" height="15"></i></div>Box Info
-        </button>
-        <button class="mob-add-btn type-img" data-mob-add="image">
-          <div class="mob-add-btn-icon"><i data-lucide="image" width="15" height="15"></i></div>Immagine
-        </button>
-        <button class="mob-add-btn" data-mob-add="numbered">
-          <div class="mob-add-btn-icon"><i data-lucide="list-ordered" width="15" height="15"></i></div>Lista Num.
-        </button>
-        <button class="mob-add-btn type-sep" data-mob-add="separator">
-          <div class="mob-add-btn-icon"><i data-lucide="minus" width="15" height="15"></i></div>Separatore
-        </button>
-      </div>
-    </div>
-
     <!-- Section: Seleziona elemento -->
     <div class="mob-section">
-      <div class="mob-section-title">Elementi nel Canvas ${elements.length ? `<span style="color:var(--app-text-faint);font-weight:400;">(${elements.length})</span>` : ''}</div>
+      <div class="mob-section-title">Modifica Elemento ${elements.length ? `<span style="color:var(--app-text-faint);font-weight:400;">(${elements.length})</span>` : ''}</div>
       ${noEl
-        ? `<div class="mob-el-no-el" style="color:var(--app-text-faint);font-size:var(--text-xs);padding:8px 0;">Nessun elemento — usa i bottoni qui sopra.</div>`
+        ? `<div class="mob-el-no-el" style="color:var(--app-text-faint);font-size:var(--text-xs);padding:8px 0;">Nessun elemento — usa il tab <b>Elementi</b>.</div>`
         : `<div class="mob-el-list">
           ${elements.map(e => `
             <button class="mob-el-item${e.id === _mobSelectedElId ? ' active':''}" data-mob-el-id="${e.id}" aria-label="Seleziona ${elTypeLabel[e.type]||e.type}">
@@ -2267,26 +2325,6 @@ function buildMobileTextDrawer() {
     </div>` : ''}`;
 
   lucide.createIcons({ nodes: [body] });
-
-  /* Bind "Aggiungi elemento" buttons */
-  body.querySelectorAll('[data-mob-add]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const type = btn.dataset.mobAdd;
-      const el = addElement(type);
-      _mobSelectedElId = el.id;
-      selectedElId = el.id;
-      updateSelection();
-      if (type === 'image') {
-        /* Trigger image picker then rebuild */
-        triggerImageUpload(el.id);
-        setTimeout(() => buildMobileTextDrawer(), 300);
-      } else {
-        buildMobileTextDrawer();
-        /* Scroll to editor */
-        setTimeout(() => body.querySelector('#mob-text-editor')?.scrollIntoView({ behavior:'smooth', block:'start' }), 120);
-      }
-    });
-  });
 
   /* Bind element picker */
   body.querySelectorAll('[data-mob-el-id]').forEach(btn => {
@@ -2809,6 +2847,7 @@ function bindMobileEvents() {
       if (_activeMobDrawer === drawerId) { closeMobDrawer(drawerId); return; }
       /* Build content before opening */
       if (drawerId === 'mob-drawer-template') buildMobileTemplateDrawer();
+      if (drawerId === 'mob-drawer-elements') buildMobileElementsDrawer();
       if (drawerId === 'mob-drawer-testo')    buildMobileTextDrawer();
       if (drawerId === 'mob-drawer-colori')   buildMobileColorDrawer();
       if (drawerId === 'mob-drawer-media')    buildMobileMediaDrawer();
@@ -4815,22 +4854,36 @@ function initPaletteDragDrop() {
 
   /* ── Global paste (Ctrl+V / Cmd+V) ── */
   document.addEventListener('paste', e => {
+    /* Don't intercept if focus is on an input/textarea */
+    if (['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)) return;
+
     const items = [...(e.clipboardData?.items || [])];
     const imgItem = items.find(it => it.type.startsWith('image/'));
     if (!imgItem) return;
+
     e.preventDefault();
     const blob = imgItem.getAsFile();
     if (!blob) return;
 
-    /* If a canvas image element is selected, update it; otherwise create new */
+    /* If a target image element is selected, update it; otherwise create new */
     const selImg = elements.find(el => el.id === selectedElId && el.type === 'image');
     if (selImg) {
       loadImageFileIntoElement(blob, selImg.id);
-      showToast('📋 Immagine incollata nell\'elemento selezionato');
+      showToast('📋 Immagine sostituita con successo');
     } else {
+      /* Add as new element at current scroll or end */
       const el = addElement('image');
       loadImageFileIntoElement(blob, el.id);
-      showToast('📋 Immagine incollata dal clipboard');
+      showToast('📋 Immagine incollata come nuovo elemento');
+      
+      /* On mobile, open Media drawer to show controls */
+      if (isMobile()) {
+        setTimeout(() => {
+          _mobSelectedElId = el.id;
+          buildMobileMediaDrawer();
+          openMobDrawer('mob-drawer-media');
+        }, 300);
+      }
     }
   });
 }
