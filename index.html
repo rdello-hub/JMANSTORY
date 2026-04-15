@@ -890,6 +890,45 @@ a { color: inherit; text-decoration: none; }
 }
 .ai-output-area.visible { display: block; }
 .ai-output-actions { display: flex; gap: 6px; margin-top: 6px; }
+/* ── MOBILE ADD-ELEMENT GRID ── */
+.mob-add-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.mob-add-btn {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px; padding: 12px 6px;
+  background: var(--app-bg); border: 1px solid var(--app-border);
+  border-radius: var(--radius-md); cursor: pointer;
+  font-size: 10px; font-weight: 600; color: var(--app-text-muted);
+  transition: all var(--transition); line-height: 1.2; text-align: center;
+}
+.mob-add-btn:hover, .mob-add-btn:active {
+  background: var(--app-panel-2); color: var(--accent-text);
+  border-color: rgba(124,92,252,0.4);
+}
+.mob-add-btn-icon {
+  width: 30px; height: 30px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(124,92,252,0.12); color: var(--accent-text); flex-shrink: 0;
+}
+.mob-add-btn.type-img .mob-add-btn-icon { background: rgba(245,158,11,0.12); color: var(--accent-amber); }
+.mob-add-btn.type-img { color: var(--accent-amber); border-color: rgba(245,158,11,0.2); }
+.mob-add-btn.type-sep .mob-add-btn-icon { background: rgba(255,255,255,0.05); color: var(--app-text-faint); }
+
+/* ── PASTE / DROP VISUAL CUE ── */
+.canvas-paste-hint {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 8px;
+  background: rgba(124,92,252,0.06); border: 2px dashed rgba(124,92,252,0.5);
+  border-radius: 20px; pointer-events: none; z-index: 50;
+  opacity: 0; transition: opacity 0.2s;
+}
+.canvas-paste-hint.visible { opacity: 1; }
+.canvas-paste-hint p { font-size: 12px; color: rgba(124,92,252,0.8); font-weight: 600; }
+
 .ai-active-badge {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 3px 9px; border-radius: 99px;
@@ -1600,6 +1639,10 @@ a { color: inherit; text-decoration: none; }
             <div class="canvas-drop-hint-text">Trascina elementi dalla palette<br>o doppio click per aggiungere</div>
           </div>
           <div class="story-overflow-warning" id="overflow-icon" aria-label="Attenzione: contenuto oltre il margine" title="Contenuto fuori margine">!</div>
+          <div class="canvas-paste-hint" id="canvas-paste-hint" aria-hidden="true">
+            <i data-lucide="image" width="32" height="32" style="color:rgba(124,92,252,0.6);"></i>
+            <p>Rilascia o incolla l'immagine</p>
+          </div>
         </div>
       </div>
     </main>
@@ -2100,13 +2143,53 @@ function buildMobileTextDrawer() {
   const noEl = elements.length === 0;
 
   body.innerHTML = `
+    <!-- Section: Aggiungi elemento rapido -->
+    <div class="mob-section">
+      <div class="mob-section-title">➕ Aggiungi elemento</div>
+      <div class="mob-add-grid">
+        <button class="mob-add-btn" data-mob-add="title">
+          <div class="mob-add-btn-icon"><i data-lucide="type" width="15" height="15"></i></div>Titolo
+        </button>
+        <button class="mob-add-btn" data-mob-add="subtitle">
+          <div class="mob-add-btn-icon"><i data-lucide="pilcrow" width="15" height="15"></i></div>Sottotitolo
+        </button>
+        <button class="mob-add-btn" data-mob-add="paragraph">
+          <div class="mob-add-btn-icon"><i data-lucide="align-left" width="15" height="15"></i></div>Paragrafo
+        </button>
+        <button class="mob-add-btn" data-mob-add="bullets">
+          <div class="mob-add-btn-icon"><i data-lucide="list" width="15" height="15"></i></div>Bullet List
+        </button>
+        <button class="mob-add-btn" data-mob-add="quote">
+          <div class="mob-add-btn-icon"><i data-lucide="quote" width="15" height="15"></i></div>Citazione
+        </button>
+        <button class="mob-add-btn" data-mob-add="cta">
+          <div class="mob-add-btn-icon"><i data-lucide="zap" width="15" height="15"></i></div>CTA
+        </button>
+        <button class="mob-add-btn" data-mob-add="badge">
+          <div class="mob-add-btn-icon"><i data-lucide="tag" width="15" height="15"></i></div>Badge
+        </button>
+        <button class="mob-add-btn" data-mob-add="box">
+          <div class="mob-add-btn-icon"><i data-lucide="square" width="15" height="15"></i></div>Box Info
+        </button>
+        <button class="mob-add-btn type-img" data-mob-add="image">
+          <div class="mob-add-btn-icon"><i data-lucide="image" width="15" height="15"></i></div>Immagine
+        </button>
+        <button class="mob-add-btn" data-mob-add="numbered">
+          <div class="mob-add-btn-icon"><i data-lucide="list-ordered" width="15" height="15"></i></div>Lista Num.
+        </button>
+        <button class="mob-add-btn type-sep" data-mob-add="separator">
+          <div class="mob-add-btn-icon"><i data-lucide="minus" width="15" height="15"></i></div>Separatore
+        </button>
+      </div>
+    </div>
+
     <!-- Section: Seleziona elemento -->
     <div class="mob-section">
-      <div class="mob-section-title">Elementi nel Canvas</div>
+      <div class="mob-section-title">Elementi nel Canvas ${elements.length ? `<span style="color:var(--app-text-faint);font-weight:400;">(${elements.length})</span>` : ''}</div>
       ${noEl
-        ? `<div class="mob-el-no-el">Nessun elemento.<br>Aggiungi elementi dal Desktop o scegli un Template.</div>`
+        ? `<div class="mob-el-no-el" style="color:var(--app-text-faint);font-size:var(--text-xs);padding:8px 0;">Nessun elemento — usa i bottoni qui sopra.</div>`
         : `<div class="mob-el-list">
-          ${elements.filter(e => e.type !== 'separator').map(e => `
+          ${elements.map(e => `
             <button class="mob-el-item${e.id === _mobSelectedElId ? ' active':''}" data-mob-el-id="${e.id}" aria-label="Seleziona ${elTypeLabel[e.type]||e.type}">
               <div class="mob-el-item-icon"><i data-lucide="${elIcon[e.type]||'circle'}" width="14" height="14"></i></div>
               <div class="mob-el-item-info">
@@ -2184,6 +2267,26 @@ function buildMobileTextDrawer() {
     </div>` : ''}`;
 
   lucide.createIcons({ nodes: [body] });
+
+  /* Bind "Aggiungi elemento" buttons */
+  body.querySelectorAll('[data-mob-add]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const type = btn.dataset.mobAdd;
+      const el = addElement(type);
+      _mobSelectedElId = el.id;
+      selectedElId = el.id;
+      updateSelection();
+      if (type === 'image') {
+        /* Trigger image picker then rebuild */
+        triggerImageUpload(el.id);
+        setTimeout(() => buildMobileTextDrawer(), 300);
+      } else {
+        buildMobileTextDrawer();
+        /* Scroll to editor */
+        setTimeout(() => body.querySelector('#mob-text-editor')?.scrollIntoView({ behavior:'smooth', block:'start' }), 120);
+      }
+    });
+  });
 
   /* Bind element picker */
   body.querySelectorAll('[data-mob-el-id]').forEach(btn => {
@@ -2444,11 +2547,47 @@ function buildMobileMediaDrawer() {
     body.innerHTML = `
       <div class="mob-section">
         <div class="mob-section-title">Media</div>
-        <div class="mob-el-no-el">
-          Nessun elemento Immagine nel canvas.<br>
-          Aggiungi un elemento "Immagine" dal Desktop oppure scegli un Template con immagine.
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">
+          <button class="mob-add-btn type-img" id="mob-btn-add-img-gallery" style="flex-direction:row;gap:10px;padding:14px 12px;font-size:12px;">
+            <div class="mob-add-btn-icon"><i data-lucide="image" width="16" height="16"></i></div>
+            Scegli dalla Galleria / File
+          </button>
+          <button class="mob-add-btn type-img" id="mob-btn-add-img-camera" style="flex-direction:row;gap:10px;padding:14px 12px;font-size:12px;">
+            <div class="mob-add-btn-icon"><i data-lucide="camera" width="16" height="16"></i></div>
+            Scatta con la Fotocamera
+          </button>
+          <div style="font-size:10px;color:var(--app-text-faint);text-align:center;padding:4px 0;">
+            💡 Puoi anche incollare un'immagine con Ctrl+V / ⌘V
+          </div>
         </div>
       </div>`;
+    lucide.createIcons({ nodes: [body] });
+
+    /* File input per galleria */
+    const inpGallery = document.createElement('input');
+    inpGallery.type = 'file'; inpGallery.accept = 'image/*'; inpGallery.style.display = 'none';
+    document.body.appendChild(inpGallery);
+    body.querySelector('#mob-btn-add-img-gallery')?.addEventListener('click', () => inpGallery.click());
+    inpGallery.onchange = e => {
+      const file = e.target.files[0]; if (!file) return;
+      const el = addElement('image');
+      loadImageFileIntoElement(file, el.id);
+      inpGallery.remove();
+      setTimeout(() => buildMobileMediaDrawer(), 400);
+    };
+
+    /* File input per fotocamera */
+    const inpCamera = document.createElement('input');
+    inpCamera.type = 'file'; inpCamera.accept = 'image/*'; inpCamera.capture = 'environment'; inpCamera.style.display = 'none';
+    document.body.appendChild(inpCamera);
+    body.querySelector('#mob-btn-add-img-camera')?.addEventListener('click', () => inpCamera.click());
+    inpCamera.onchange = e => {
+      const file = e.target.files[0]; if (!file) return;
+      const el = addElement('image');
+      loadImageFileIntoElement(file, el.id);
+      inpCamera.remove();
+      setTimeout(() => buildMobileMediaDrawer(), 400);
+    };
     return;
   }
 
@@ -4576,36 +4715,123 @@ function importJSON(file) {
 /* ============================================================
    29. DRAG & DROP (palette → canvas)
    ============================================================ */
+/* ── Carica un File immagine in un elemento ── */
+function loadImageFileIntoElement(file, elId) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    pushHistory();
+    const target = elements.find(x => x.id === elId);
+    if (target) { target.src = ev.target.result; }
+    renderCanvas(); initSortable(); renderPropsPanel();
+    showToast('📸 Immagine inserita!');
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ── Inserisce file immagine come nuovo elemento, nella posizione y del canvas ── */
+function dropImageFile(file, clientY) {
+  const content = document.getElementById('canvas-content');
+  const rect    = content ? content.getBoundingClientRect() : null;
+  let insertAfter = -1;
+  if (rect) {
+    const y = clientY - rect.top;
+    [...(content.querySelectorAll('.canvas-el') || [])].forEach((w, i) => {
+      const wr = w.getBoundingClientRect();
+      if (y > (wr.top + wr.height / 2 - rect.top)) insertAfter = i;
+    });
+  }
+  const el = addElement('image', insertAfter);
+  loadImageFileIntoElement(file, el.id);
+}
+
 function initPaletteDragDrop() {
   const canvas  = document.getElementById('story-canvas');
   const content = document.getElementById('canvas-content');
+  const pasteHint = document.getElementById('canvas-paste-hint');
   if (!canvas || !content) return;
+
+  /* ── Show/hide paste hint on image file hover ── */
+  function showPasteHint(show) { pasteHint?.classList.toggle('visible', show); }
 
   canvas.addEventListener('dragover', e => {
     e.preventDefault();
+    const hasImageFile = [...(e.dataTransfer.items||[])].some(it => it.kind==='file' && it.type.startsWith('image/'));
     e.dataTransfer.dropEffect = 'copy';
     content.classList.add('drag-over');
+    showPasteHint(hasImageFile);
   });
   canvas.addEventListener('dragleave', e => {
-    if (!canvas.contains(e.relatedTarget)) content.classList.remove('drag-over');
+    if (!canvas.contains(e.relatedTarget)) {
+      content.classList.remove('drag-over');
+      showPasteHint(false);
+    }
   });
   canvas.addEventListener('drop', e => {
     e.preventDefault();
     content.classList.remove('drag-over');
+    showPasteHint(false);
+
+    /* ── Priority 1: image file from file system / other app ── */
+    const imageFiles = [...(e.dataTransfer.files || [])].filter(f => f.type.startsWith('image/'));
+    if (imageFiles.length) {
+      dropImageFile(imageFiles[0], e.clientY);
+      return;
+    }
+
+    /* ── Priority 2: image URL dragged from browser/web ── */
+    const htmlData = e.dataTransfer.getData('text/html');
+    const urlData  = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
+    const srcMatch = htmlData.match(/src=["']([^"']+)["']/i);
+    const imgURL   = srcMatch?.[1] || (urlData?.match(/\.(jpg|jpeg|png|webp|gif|svg)(\?|$)/i) ? urlData : null);
+    if (imgURL) {
+      const rect = content.getBoundingClientRect();
+      const y    = e.clientY - rect.top;
+      let insertAfter = -1;
+      [...content.querySelectorAll('.canvas-el')].forEach((w, i) => {
+        const wr = w.getBoundingClientRect();
+        if (y > (wr.top + wr.height / 2 - rect.top)) insertAfter = i;
+      });
+      pushHistory();
+      const el = addElement('image', insertAfter);
+      el.src = imgURL;
+      renderCanvas(); initSortable(); renderPropsPanel();
+      showToast('🖼 Immagine inserita da URL');
+      return;
+    }
+
+    /* ── Priority 3: palette element drop ── */
     const type = e.dataTransfer.getData('text/plain');
     if (!type) return;
-
-    /* Find insert position */
     const rect = content.getBoundingClientRect();
     const y    = e.clientY - rect.top;
     let insertAfter = -1;
     [...content.querySelectorAll('.canvas-el')].forEach((w, i) => {
       const wr = w.getBoundingClientRect();
-      if (y > (wr.top + wr.height/2 - rect.top)) insertAfter = i;
+      if (y > (wr.top + wr.height / 2 - rect.top)) insertAfter = i;
     });
-
     const el = addElement(type, insertAfter);
     if (type === 'image') setTimeout(() => triggerImageUpload(el.id), 100);
+  });
+
+  /* ── Global paste (Ctrl+V / Cmd+V) ── */
+  document.addEventListener('paste', e => {
+    const items = [...(e.clipboardData?.items || [])];
+    const imgItem = items.find(it => it.type.startsWith('image/'));
+    if (!imgItem) return;
+    e.preventDefault();
+    const blob = imgItem.getAsFile();
+    if (!blob) return;
+
+    /* If a canvas image element is selected, update it; otherwise create new */
+    const selImg = elements.find(el => el.id === selectedElId && el.type === 'image');
+    if (selImg) {
+      loadImageFileIntoElement(blob, selImg.id);
+      showToast('📋 Immagine incollata nell\'elemento selezionato');
+    } else {
+      const el = addElement('image');
+      loadImageFileIntoElement(blob, el.id);
+      showToast('📋 Immagine incollata dal clipboard');
+    }
   });
 }
 
