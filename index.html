@@ -814,6 +814,39 @@ a { color: inherit; text-decoration: none; }
 .el-image-wrap { border-radius: 10px; overflow: hidden; position: relative; width: 100%; }
 .el-image-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .el-image-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(11,13,20,0.7) 0%, transparent 50%); }
+
+/* ── Immagini liberamente posizionabili (absolute layer) ── */
+.canvas-img-layer {
+  position: absolute; overflow: hidden; box-sizing: border-box;
+  cursor: grab; touch-action: none; z-index: 5; user-select: none;
+  outline: 2px solid transparent; outline-offset: 2px;
+  transition: outline var(--transition);
+}
+.canvas-img-layer:active { cursor: grabbing; }
+.canvas-img-layer.selected { outline-color: var(--accent); z-index: 6; }
+.canvas-img-layer img { width:100%; height:100%; object-fit:cover; display:block; pointer-events:none; }
+.canvas-img-layer .el-image-overlay { position:absolute; inset:0; pointer-events:none; }
+.canvas-img-layer .el-controls {
+  position:absolute; top:3px; right:3px; display:none; z-index:25;
+  background:var(--app-panel-2); border:1px solid var(--app-border-2);
+  border-radius:6px; padding:2px; flex-direction:row; gap:2px;
+}
+.canvas-img-layer.selected .el-controls,
+.canvas-img-layer:hover  .el-controls { display:flex; }
+/* Corner resize handle */
+.img-resize-handle {
+  position:absolute; bottom:-5px; right:-5px;
+  width:14px; height:14px; background:var(--accent);
+  border-radius:3px; cursor:se-resize; z-index:26; display:none;
+  touch-action:none;
+}
+.canvas-img-layer.selected .img-resize-handle { display:block; }
+/* Placeholder no-src */
+.canvas-img-empty {
+  width:100%; height:100%; display:flex; align-items:center; justify-content:center;
+  background:rgba(124,92,252,0.06); border:2px dashed rgba(124,92,252,0.2);
+  font-size:11px; color:rgba(255,255,255,0.2); cursor:pointer; border-radius:inherit;
+}
 .el-box { padding: 3% 4%; border-radius: 8px; background: rgba(124,92,252,0.07); border: 1px solid rgba(124,92,252,0.25); white-space: break-spaces; }
 .el-box-label { font-size: 0.65em; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.6; margin-bottom: 4px; font-family: 'Montserrat', sans-serif; }
 .el-quote { font-family: 'Montserrat', sans-serif; font-weight: 800; line-height: 1.2; letter-spacing: -0.02em; padding-left: 5%; border-left: 3px solid #7c5cfc; white-space: break-spaces; }
@@ -2665,11 +2698,9 @@ function buildMobileMediaDrawer() {
     ${selImg ? `
     <div class="mob-section">
       <div class="mob-section-title">Controlli</div>
-      <div class="mob-field">
-        <label class="mob-label">Altezza <span class="mob-label-value" id="mob-img-h-val">${selImg.height||30}%</span></label>
-        <div class="mob-slider-wrap">
-          <input type="range" class="mob-slider" id="mob-img-h-slider" min="10" max="85" value="${selImg.height||30}" aria-label="Altezza immagine">
-        </div>
+      <div style="background:rgba(124,92,252,0.07);border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:11px;color:var(--app-text-muted);line-height:1.6;">
+        🤏 <b>Pizzica</b> per ridimensionare<br>
+        👆 <b>Trascina</b> per spostare
       </div>
       <div class="mob-field">
         <label class="mob-label">Overlay scuro <span class="mob-label-value" id="mob-img-ov-val">${Math.round((selImg.overlayOpacity||0)*100)}%</span></label>
@@ -2680,7 +2711,7 @@ function buildMobileMediaDrawer() {
       <div class="mob-field">
         <label class="mob-label">Border radius <span class="mob-label-value" id="mob-img-br-val">${selImg.borderRadius||10}px</span></label>
         <div class="mob-slider-wrap">
-          <input type="range" class="mob-slider" id="mob-img-br-slider" min="0" max="40" value="${selImg.borderRadius||10}" aria-label="Angoli">
+          <input type="range" class="mob-slider" id="mob-img-br-slider" min="0" max="60" value="${selImg.borderRadius||10}" aria-label="Angoli">
         </div>
       </div>
       <div class="mob-field">
@@ -2742,7 +2773,6 @@ function buildMobileMediaDrawer() {
       renderCanvas();
     });
   };
-  bindMobSlider('mob-img-h-slider',  'mob-img-h-val',  'height',         false);
   bindMobSlider('mob-img-ov-slider', 'mob-img-ov-val', 'overlayOpacity', true);
   bindMobSlider('mob-img-br-slider', 'mob-img-br-val', 'borderRadius',   false);
 
@@ -2905,7 +2935,7 @@ const EL_DEFAULTS = {
   paragraph: { type:'paragraph', text:'Scrivi il testo qui. Usa {parole chiave} per gli highlight.', size:13, align:'left', lineHeight:1.6, letterSpacing:0, opacity:1 },
   bullets:   { type:'bullets',   items:['Primo punto chiave','Secondo punto chiave','Terzo punto'], size:13, lineHeight:1.5, opacity:1 },
   numbered:  { type:'numbered',  items:['Primo step','Secondo step','Terzo step'], size:13, lineHeight:1.5, opacity:1 },
-  image:     { type:'image',     src:null, height:30, fit:'cover', borderRadius:10, overlayOpacity:0 },
+  image:     { type:'image',     src:null, x:8, y:13, w:84, height:30, fit:'cover', borderRadius:10, overlayOpacity:0 },
   box:       { type:'box',       label:'Consiglio', text:'Testo del box informativo', size:13, lineHeight:1.5, opacity:1 },
   quote:     { type:'quote',     text:'La citazione impattante va qui.', size:22, weight:'800', lineHeight:1.2, opacity:1 },
   cta:       { type:'cta',       text:'Vuoi saperne di più? Contattami.', size:13, align:'left', lineHeight:1.5, opacity:1 },
@@ -2996,24 +3026,9 @@ function renderElHTML(el, scale = 1) {
       </div>`;
     }
 
-    case 'image': {
-      const pxH = scale === 1
-        ? getPreviewImageHeightPx(el.height||30)
-        : Math.round((1920 - Math.round(1920*(globalState.safeTop||13)/100) - Math.round(1920*(globalState.safeBottom||21)/100)) * ((el.height||30)/100));
-      const br  = Math.round((el.borderRadius||10) * scale);
-      if (!el.src) {
-        return `<div class="el-image-wrap" style="height:${pxH}px;min-height:${Math.round(60*scale)}px;background:rgba(124,92,252,0.06);border:${Math.max(1,Math.round(2*scale))}px dashed rgba(124,92,252,0.2);display:flex;align-items:center;justify-content:center;border-radius:${br}px;">
-          <span style="color:rgba(255,255,255,0.2);font-size:${Math.round(11*scale)}px;">Clicca per caricare immagine</span>
-        </div>`;
-      }
-      const overlayStyle = el.overlayOpacity > 0
-        ? `background:rgba(0,0,0,${el.overlayOpacity});`
-        : 'background:linear-gradient(to top,rgba(11,13,20,0.7) 0%,transparent 50%);';
-      return `<div class="el-image-wrap" style="height:${pxH}px;min-height:${Math.round(40*scale)}px;border-radius:${br}px;">
-        <img src="${el.src}" alt="" style="object-fit:${el.fit||'cover'};" loading="eager">
-        <div class="el-image-overlay" style="${overlayStyle}"></div>
-      </div>`;
-    }
+    case 'image':
+      /* Images are rendered as absolute layers (buildImageLayer / export imgLayersHTML) */
+      return '';
 
     case 'box':
       return `<div class="el-box" style="border-radius:${Math.round(8*scale)}px;opacity:${op};">
@@ -3041,7 +3056,7 @@ function renderElHTML(el, scale = 1) {
    22. CANVAS ENGINE
    ============================================================ */
 function updateSelection() {
-  document.querySelectorAll('#canvas-content > .canvas-el').forEach(wrap => {
+  document.querySelectorAll('#canvas-content > .canvas-el, #story-canvas > .canvas-img-layer').forEach(wrap => {
     const id = parseInt(wrap.dataset.id);
     wrap.classList.toggle('selected', id === selectedElId);
   });
@@ -3052,9 +3067,11 @@ function syncElementsOrderFromDOM() {
   if (!content) return;
   const wrappers = [...content.querySelectorAll(':scope > .canvas-el[data-id]')];
   if (!wrappers.length) return;
-  const byId = new Map(elements.map(e => [String(e.id), e]));
-  const reordered = wrappers.map(w => byId.get(w.dataset.id)).filter(Boolean);
-  if (reordered.length === elements.length) elements = reordered;
+  const byId      = new Map(elements.map(e => [String(e.id), e]));
+  const textEls   = wrappers.map(w => byId.get(w.dataset.id)).filter(Boolean);
+  const imageEls  = elements.filter(e => e.type === 'image');
+  const combined  = [...textEls, ...imageEls]; /* images stay at end, position irrelevant */
+  if (combined.length === elements.length) elements = combined;
 }
 
 function renderCanvas() {
@@ -3116,9 +3133,18 @@ function renderCanvas() {
   /* Drop hint */
   hint.classList.toggle('visible', elements.length === 0);
 
+  /* Remove old floating image layers */
+  canvas.querySelectorAll('.canvas-img-layer').forEach(n => n.remove());
+
   /* Rebuild element DOM */
   content.innerHTML = '';
   elements.forEach(el => {
+    if (el.type === 'image') {
+      /* Images: absolutely positioned layer directly on #story-canvas */
+      canvas.appendChild(buildImageLayer(el));
+      return;
+    }
+
     const wrapper = document.createElement('div');
     wrapper.className = 'canvas-el' + (el.id === selectedElId ? ' selected' : '');
     wrapper.dataset.id = el.id;
@@ -3139,14 +3165,6 @@ function renderCanvas() {
     const inner = document.createElement('div');
     inner.innerHTML = renderElHTML(el);
     wrapper.appendChild(inner);
-
-    /* Image click to upload (when no src) */
-    if (el.type === 'image' && !el.src) {
-      wrapper.addEventListener('click', e => {
-        if (e.target.closest('.el-controls')) return;
-        triggerImageUpload(el.id);
-      });
-    }
 
     content.appendChild(wrapper);
   });
@@ -3460,13 +3478,15 @@ function buildPropsHTML(el) {
         <i data-lucide="trash-2" width="11" height="11"></i> Rimuovi
       </button>` : ''}
     </div>
-    <div class="form-group">
-      <label class="form-label">Altezza <span class="slider-value" id="sv-size-${el.id}">${el.height||30}%</span></label>
-      <input type="range" class="form-slider" data-prop="height" data-label="sv-size-${el.id}" data-suffix="%" min="10" max="85" value="${el.height||30}" aria-label="Altezza immagine">
+    <div class="form-group" style="background:rgba(124,92,252,0.06);border-radius:8px;padding:10px 12px;">
+      <div style="font-size:0.75rem;color:var(--app-text-muted);line-height:1.5;">
+        📱 <strong>Trascina</strong> per spostare &nbsp;|&nbsp; 🤏 <strong>Pizzica</strong> per ridimensionare<br>
+        🖱 <strong>Rotella mouse</strong> per zoom &nbsp;|&nbsp; <strong>Angolo ↘</strong> per ridimensionare
+      </div>
     </div>
     <div class="form-group">
       <label class="form-label">Border radius <span class="slider-value" id="sv-br-${el.id}">${el.borderRadius||10}px</span></label>
-      <input type="range" class="form-slider" data-prop="borderRadius" data-label="sv-br-${el.id}" data-suffix="px" min="0" max="40" value="${el.borderRadius||10}" aria-label="Angoli arrotondati">
+      <input type="range" class="form-slider" data-prop="borderRadius" data-label="sv-br-${el.id}" data-suffix="px" min="0" max="60" value="${el.borderRadius||10}" aria-label="Angoli arrotondati">
     </div>
     <div class="form-group">
       <label class="form-label">Overlay scuro <span class="slider-value" id="sv-ov-${el.id}">${Math.round((el.overlayOpacity||0)*100)}%</span></label>
@@ -4641,10 +4661,27 @@ async function exportPNG() {
       bgHTML = `<img class="story-bg-template" src="${src}" alt="" crossorigin="anonymous">`;
     }
 
-    /* Build content */
+    /* Build content — text elements in flex flow, images as absolute layers */
     let contentHTML = '';
+    let imgLayersHTML = '';
     elements.forEach(el => {
-      contentHTML += `<div style="flex-shrink:0;">${renderElHTML(el, SCALE)}</div>`;
+      if (el.type === 'image') {
+        if (!el.src) return;
+        const left   = Math.round((el.x  ?? 8)  * 1080 / 100);
+        const top    = Math.round((el.y  ?? 13) * STORY_H / 100);
+        const width  = Math.round((el.w  ?? 84) * 1080 / 100);
+        const height = Math.round((el.height ?? 30) * STORY_H / 100);
+        const br     = Math.round((el.borderRadius || 10) * SCALE);
+        const overlay = el.overlayOpacity > 0
+          ? `background:rgba(0,0,0,${el.overlayOpacity})`
+          : `background:linear-gradient(to top,rgba(11,13,20,0.7) 0%,transparent 50%)`;
+        imgLayersHTML += `<div style="position:absolute;left:${left}px;top:${top}px;width:${width}px;height:${height}px;border-radius:${br}px;overflow:hidden;z-index:5;">
+          <img src="${el.src}" alt="" crossorigin="anonymous" style="width:100%;height:100%;object-fit:${el.fit||'cover'};display:block;">
+          <div style="position:absolute;inset:0;${overlay};"></div>
+        </div>`;
+      } else {
+        contentHTML += `<div style="flex-shrink:0;">${renderElHTML(el, SCALE)}</div>`;
+      }
     });
 
     const safeTop    = Math.round(STORY_H * (globalState.safeTop    || 13) / 100);
@@ -4652,7 +4689,8 @@ async function exportPNG() {
     const gapPx      = Math.round((globalState.elementGap || 5) * SCALE);
 
     exportEl.innerHTML = `${bgHTML}
-      <div style="position:relative;z-index:1;display:flex;flex-direction:column;width:100%;height:100%;padding:${safeTop}px 8% ${safeBottom}px;gap:${gapPx}px;overflow:hidden;font-family:'Inter','Montserrat',sans-serif;">
+      ${imgLayersHTML}
+      <div style="position:relative;z-index:10;display:flex;flex-direction:column;width:100%;height:100%;padding:${safeTop}px 8% ${safeBottom}px;gap:${gapPx}px;overflow:hidden;font-family:'Inter','Montserrat',sans-serif;">
         ${contentHTML}
       </div>`;
 
@@ -4790,6 +4828,10 @@ function loadImageFileIntoElement(file, elId) {
     const tmpImg = new Image();
     tmpImg.onload = () => {
       target.height = calcSmartImageHeight(tmpImg.naturalWidth, tmpImg.naturalHeight);
+      /* Set position defaults if not already placed */
+      if (target.x === undefined || target.x === null) target.x = 8;
+      if (target.y === undefined || target.y === null) target.y = Math.max(5, Math.round(50 - target.height / 2));
+      if (target.w === undefined || target.w === null) target.w = 84;
       renderCanvas(); initSortable(); renderPropsPanel();
       showToast('📸 Immagine inserita!');
     };
@@ -4803,18 +4845,164 @@ function loadImageFileIntoElement(file, elId) {
 }
 
 /* ── Inserisce file immagine come nuovo elemento, nella posizione y del canvas ── */
-function dropImageFile(file, clientY) {
-  const content = document.getElementById('canvas-content');
-  const rect    = content ? content.getBoundingClientRect() : null;
-  let insertAfter = -1;
-  if (rect) {
-    const y = clientY - rect.top;
-    [...(content.querySelectorAll('.canvas-el') || [])].forEach((w, i) => {
-      const wr = w.getBoundingClientRect();
-      if (y > (wr.top + wr.height / 2 - rect.top)) insertAfter = i;
-    });
+/* ============================================================
+   29b. IMAGE LAYER — build + gestures (drag/pinch/wheel)
+   ============================================================ */
+let _imgGesture = null; /* global gesture state to avoid listener leaks */
+
+function buildImageLayer(el) {
+  const div = document.createElement('div');
+  div.className = 'canvas-img-layer' + (el.id === selectedElId ? ' selected' : '');
+  div.dataset.id = el.id;
+  div.style.left         = (el.x  ?? 8)  + '%';
+  div.style.top          = (el.y  ?? 13) + '%';
+  div.style.width        = (el.w  ?? 84) + '%';
+  div.style.height       = (el.height ?? 30) + '%';
+  div.style.borderRadius = (el.borderRadius || 10) + 'px';
+
+  /* Inner content */
+  if (!el.src) {
+    const ph = document.createElement('div');
+    ph.className = 'canvas-img-empty';
+    ph.textContent = 'Tocca per caricare immagine';
+    div.appendChild(ph);
+    div.addEventListener('click', e => { if (!e.target.closest('.el-controls')) triggerImageUpload(el.id); });
+  } else {
+    const overlayStyle = el.overlayOpacity > 0
+      ? `background:rgba(0,0,0,${el.overlayOpacity})`
+      : `background:linear-gradient(to top,rgba(11,13,20,0.7) 0%,transparent 50%)`;
+    div.innerHTML = `<img src="${el.src}" alt="" style="width:100%;height:100%;object-fit:${el.fit||'cover'};display:block;pointer-events:none;" loading="eager">
+      <div class="el-image-overlay" style="${overlayStyle};pointer-events:none;"></div>`;
   }
-  const el = addElement('image', insertAfter);
+
+  /* Controls (dup / del) */
+  const ctrl = document.createElement('div');
+  ctrl.className = 'el-controls';
+  ctrl.innerHTML = `
+    <button class="el-btn el-dup" title="Duplica" aria-label="Duplica" data-id="${el.id}"><i data-lucide="copy" width="11" height="11"></i></button>
+    <button class="el-btn el-del" title="Elimina" aria-label="Elimina" data-id="${el.id}"><i data-lucide="trash-2" width="11" height="11"></i></button>`;
+  div.appendChild(ctrl);
+  ctrl.querySelector('.el-del').addEventListener('click', e => { e.stopPropagation(); deleteEl(el.id); });
+  ctrl.querySelector('.el-dup').addEventListener('click', e => { e.stopPropagation(); dupEl(el.id); });
+
+  /* Resize handle (bottom-right corner, desktop) */
+  const resizeHandle = document.createElement('div');
+  resizeHandle.className = 'img-resize-handle';
+  div.appendChild(resizeHandle);
+
+  /* Click to select */
+  div.addEventListener('click', e => {
+    if (e.target.closest('.el-controls') || e.target.closest('.img-resize-handle')) return;
+    selectedElId = el.id;
+    updateSelection(); renderPropsPanel();
+  });
+
+  /* ── MOUSE drag (move) ── */
+  div.addEventListener('mousedown', e => {
+    if (e.target.closest('.el-controls') || e.target.closest('.img-resize-handle')) return;
+    e.preventDefault();
+    const c = document.getElementById('story-canvas');
+    _imgGesture = { type:'move', el, div, sx:e.clientX, sy:e.clientY, ex:el.x??8, ey:el.y??13, cW:c.clientWidth, cH:c.clientHeight };
+    selectedElId = el.id; updateSelection(); renderPropsPanel();
+  });
+
+  /* ── MOUSE resize handle ── */
+  resizeHandle.addEventListener('mousedown', e => {
+    e.preventDefault(); e.stopPropagation();
+    const c = document.getElementById('story-canvas');
+    _imgGesture = { type:'resize', el, div, sx:e.clientX, sy:e.clientY, ew:el.w??84, eh:el.height??30, cW:c.clientWidth, cH:c.clientHeight };
+    selectedElId = el.id; updateSelection(); renderPropsPanel();
+  });
+
+  /* ── MOUSE WHEEL resize ── */
+  div.addEventListener('wheel', e => {
+    e.preventDefault();
+    const scale = e.deltaY < 0 ? 1.04 : 0.96;
+    el.w      = Math.max(20, Math.min(100, (el.w??84) * scale));
+    el.height = Math.max(10, Math.min(95, (el.height??30) * scale));
+    div.style.width  = el.w + '%';
+    div.style.height = el.height + '%';
+    scheduleAutosave();
+  }, { passive: false });
+
+  /* ── TOUCH: drag + pinch ── */
+  let ts = null; /* per-layer touch state */
+  div.addEventListener('touchstart', e => {
+    if (e.target.closest('.el-controls')) return;
+    selectedElId = el.id; updateSelection(); renderPropsPanel();
+    const c = document.getElementById('story-canvas');
+    const cW = c.clientWidth, cH = c.clientHeight;
+    if (e.touches.length === 1) {
+      e.preventDefault();
+      ts = { type:'move', sx:e.touches[0].clientX, sy:e.touches[0].clientY, ex:el.x??8, ey:el.y??13, cW, cH };
+    } else if (e.touches.length === 2) {
+      e.preventDefault();
+      const dx = e.touches[1].clientX - e.touches[0].clientX;
+      const dy = e.touches[1].clientY - e.touches[0].clientY;
+      ts = { type:'pinch', dist:Math.hypot(dx,dy), ew:el.w??84, eh:el.height??30, cW, cH };
+    }
+  }, { passive:false });
+
+  div.addEventListener('touchmove', e => {
+    if (!ts) return;
+    e.preventDefault();
+    if (ts.type === 'move' && e.touches.length === 1) {
+      const dx = e.touches[0].clientX - ts.sx;
+      const dy = e.touches[0].clientY - ts.sy;
+      el.x = Math.max(0, Math.min(90, ts.ex + (dx/ts.cW)*100));
+      el.y = Math.max(0, Math.min(90, ts.ey + (dy/ts.cH)*100));
+      div.style.left = el.x + '%';
+      div.style.top  = el.y + '%';
+      scheduleAutosave();
+    } else if (ts.type === 'pinch' && e.touches.length >= 2) {
+      const dx = e.touches[1].clientX - e.touches[0].clientX;
+      const dy = e.touches[1].clientY - e.touches[0].clientY;
+      const scale = Math.hypot(dx,dy) / ts.dist;
+      el.w      = Math.max(20, Math.min(100, ts.ew * scale));
+      el.height = Math.max(10, Math.min(95, ts.eh * scale));
+      div.style.width  = el.w + '%';
+      div.style.height = el.height + '%';
+      scheduleAutosave();
+    }
+  }, { passive:false });
+
+  div.addEventListener('touchend', () => { if (ts) { pushHistory(); ts = null; } });
+
+  return div;
+}
+
+/* Global mouse handlers for image drag/resize (avoids per-element listener leaks) */
+function initImageGestures() {
+  document.addEventListener('mousemove', e => {
+    if (!_imgGesture) return;
+    const { type, el, div, sx, sy, ex, ey, ew, eh, cW, cH } = _imgGesture;
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    if (type === 'move') {
+      el.x = Math.max(0, Math.min(90, ex + (dx/cW)*100));
+      el.y = Math.max(0, Math.min(90, ey + (dy/cH)*100));
+      div.style.left = el.x + '%';
+      div.style.top  = el.y + '%';
+    } else if (type === 'resize') {
+      el.w      = Math.max(20, Math.min(100, ew + (dx/cW)*100));
+      el.height = Math.max(10, Math.min(95, eh + (dy/cH)*100));
+      div.style.width  = el.w + '%';
+      div.style.height = el.height + '%';
+    }
+  });
+  document.addEventListener('mouseup', () => {
+    if (_imgGesture) { pushHistory(); scheduleAutosave(); _imgGesture = null; }
+  });
+}
+
+function dropImageFile(file, clientY) {
+  /* Images are absolute-positioned: use drop Y to set initial position */
+  const canvas = document.getElementById('story-canvas');
+  const rect   = canvas ? canvas.getBoundingClientRect() : null;
+  const el = addElement('image');
+  if (rect) {
+    const yPct = Math.max(5, Math.min(85, ((clientY - rect.top) / rect.height) * 100));
+    el.y = Math.round(yPct);
+  }
   loadImageFileIntoElement(file, el.id);
 }
 
@@ -5260,6 +5448,9 @@ function init() {
 
   /* 10. Init palette drag & drop */
   initPaletteDragDrop();
+
+  /* 10b. Global image drag/resize handlers */
+  initImageGestures();
 
   /* 11. Init accordions */
   initAccordions();
